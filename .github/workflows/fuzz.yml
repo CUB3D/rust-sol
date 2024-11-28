@@ -1,0 +1,42 @@
+name: Fuzz
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  fuzzing:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fuzz_amf0_body
+          - fuzz_amf0_element_array
+          - fuzz_amf0_header
+          - fuzz_amf3_body
+          - fuzz_amf3_int_signed
+          - fuzz_amf3_int_unsigned
+          - fuzz_amf3_string
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+
+      - name: Run Fuzzing
+        run: |
+          cargo fuzz run ${{ matrix.target }} ${{ contains(matrix.target, 'amf3') && '--features amf3' || ''}} --  -max_total_time=180
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ${{ matrix.target }}
+          path: fuzz/artifacts/
